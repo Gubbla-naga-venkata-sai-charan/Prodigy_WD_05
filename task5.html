@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Weather Assistant</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: url('https://t4.ftcdn.net/jpg/03/91/46/10/360_F_391461057_fHlKhDMYDKzQ1fLYLO3eP4z0ZC3z3kOq.jpg') no-repeat center center fixed;
+      background-size: cover;
+      margin: 0;
+      padding: 0;
+      color: #fff;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 80px auto;
+      background: rgba(47, 88, 158, 0.85);
+      padding: 40px 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 30px;
+      background: linear-gradient(to right, #f83600, #f9d423);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    input, button {
+      padding: 12px;
+      font-size: 16px;
+      margin: 10px 5px;
+      border: none;
+      border-radius: 8px;
+    }
+
+    input {
+      width: 60%;
+      background-color: #f0f0f0;
+      color: #000;
+    }
+
+    button {
+      background: #ffd700;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: #ffc107;
+      transform: scale(1.05);
+    }
+
+    #weatherDisplay {
+      margin-top: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      display: none;
+    }
+
+    #weatherDisplay h2 {
+      font-size: 1.5em;
+      color: #ffe761;
+    }
+
+    #weatherDisplay p {
+      font-size: 1.1em;
+      margin: 8px 0;
+    }
+
+    img {
+      width: 60px;
+      height: 60px;
+    }
+
+    .ai-suggestion {
+      color: #fff59d;
+      font-style: italic;
+      margin-top: 10px;
+    }
+
+    .warning {
+      color: #ff4d4d;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🤖 AI Weather Assistant</h1>
+    <input type="text" id="cityInput" placeholder="Enter city name" />
+    <button onclick="getWeatherByCity()">Search</button>
+    <button onclick="getWeatherByLocation()">📍 Use My Location</button>
+
+    <div id="weatherDisplay">
+      <h2 id="cityName"></h2>
+      <img id="weatherIcon" src="" alt="Weather icon" />
+      <p id="description"></p>
+      <p id="temperature"></p>
+      <p id="humidity"></p>
+      <p id="wind"></p>
+      <p class="ai-suggestion" id="clothingSuggestion"></p>
+      <p class="ai-suggestion" id="activitySuggestion"></p>
+      <p class="ai-suggestion" id="emojiForecast"></p>
+      <p class="warning" id="alert"></p>
+      <p id="moodScore"></p>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = "b9a2050f07dd0a117ff55c928fb7e50f";
+
+    function getWeatherByCity() {
+      const city = document.getElementById("cityInput").value.trim();
+      if (!city) {
+        alert("Please enter a city name.");
+        return;
+      }
+
+      fetchWeather(`q=${city}`);
+    }
+
+    function getWeatherByLocation() {
+      if (!navigator.geolocation) {
+        alert("Geolocation not supported by your browser.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        fetchWeather(`lat=${latitude}&lon=${longitude}`);
+      }, () => {
+        alert("Location permission denied.");
+      });
+    }
+
+    function fetchWeather(query) {
+      fetch(`https://api.openweathermap.org/data/2.5/weather?${query}&appid=${API_KEY}&units=metric`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.cod !== 200) {
+            alert(`Error: ${data.message}`);
+            return;
+          }
+          showWeather(data);
+        })
+        .catch(() => alert("Unable to fetch weather data."));
+    }
+
+    function showWeather(data) {
+      const temp = data.main.temp;
+      const description = data.weather[0].description.toLowerCase();
+      const wind = data.wind.speed;
+      const humidity = data.main.humidity;
+
+      document.getElementById("cityName").innerText = `${data.name}, ${data.sys.country}`;
+      document.getElementById("description").innerText = `🌥️ ${description}`;
+      document.getElementById("temperature").innerText = `🌡️ Temp: ${Math.round(temp)}°C`;
+      document.getElementById("humidity").innerText = `💧 Humidity: ${humidity}%`;
+      document.getElementById("wind").innerText = `💨 Wind Speed: ${wind} m/s`;
+      document.getElementById("weatherIcon").src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+      document.getElementById("weatherDisplay").style.display = "block";
+
+      // AI logic
+      document.getElementById("clothingSuggestion").innerText = getClothingAdvice(temp, description, wind);
+      document.getElementById("activitySuggestion").innerText = getActivityAdvice(description);
+      document.getElementById("emojiForecast").innerText = getEmojiForecast(description, wind, humidity);
+      document.getElementById("alert").innerText = getWeatherAlert(temp, description);
+      document.getElementById("moodScore").innerText = `🌈 Weather Mood Score: ${getMoodScore(temp, description, wind, humidity)}/10`;
+    }
+
+    function getClothingAdvice(temp, desc, wind) {
+      let advice = "👕 Clothing: ";
+
+      if (temp < 10) advice += "Wear a heavy jacket and gloves.";
+      else if (temp <= 20) advice += "Light jacket or hoodie is good.";
+      else advice += "T-shirt and shorts are fine.";
+
+      if (desc.includes("rain")) advice += " ☔ Take an umbrella.";
+      if (wind > 8) advice += " 💨 Consider windproof gear.";
+
+      return advice;
+    }
+
+    function getActivityAdvice(desc) {
+      if (desc.includes("rain")) return "📺 Best to stay indoors and relax.";
+      if (desc.includes("clear")) return "🚶 Perfect for a walk or outdoor fun!";
+      if (desc.includes("cloud")) return "📚 Great day for indoor reading or movies.";
+      return "🧘‍♂️ Take it easy today.";
+    }
+
+    function getEmojiForecast(desc, wind, humidity) {
+      let emoji = "🔍 Forecast: ";
+
+      if (desc.includes("clear")) emoji += "☀️";
+      else if (desc.includes("cloud")) emoji += "☁️";
+      else if (desc.includes("rain")) emoji += "🌧️";
+      else if (desc.includes("storm")) emoji += "⛈️";
+      else emoji += "🌡️";
+
+      if (wind > 10) emoji += " 💨";
+      if (humidity > 80) emoji += " 💦";
+
+      return emoji;
+    }
+
+    function getWeatherAlert(temp, desc) {
+      if (temp > 38) return "⚠️ Extreme heat! Stay hydrated.";
+      if (desc.includes("storm")) return "⚠️ Storm alert! Stay indoors.";
+      if (desc.includes("snow")) return "⚠️ Snow warning! Drive safely.";
+      return "";
+    }
+
+    function getMoodScore(temp, desc, wind, humidity) {
+      let score = 10;
+
+      if (temp < 5 || temp > 35) score -= 3;
+      if (desc.includes("rain") || desc.includes("storm")) score -= 3;
+      if (wind > 10) score -= 1;
+      if (humidity > 85) score -= 1;
+
+      return Math.max(score, 1);
+    }
+  </script>
+</body>
+</html>
